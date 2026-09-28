@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solar AI Agent</title>
+<style>
+:root{--bg:#0e110f;--panel:#161a17;--line:#262b27;--text:#e7ece8;--muted:#8a978c;--sun:#f5a623;--green:#3ecf7a;--red:#ef5b4c;--blue:#5aa9f0}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+h1{font-size:17px;color:var(--sun)}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.pill.on{border-color:var(--green);color:var(--green)}
+main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:14px 16px;max-width:1400px;margin:auto}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat b{display:block;font-size:20px}.stat span{font-size:11px;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+button,select,input,textarea{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 10px}
+button{cursor:pointer}button.primary{background:var(--sun);color:#1a1300;border-color:var(--sun);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase}
+tr.lead{cursor:pointer}tr.lead:hover,tr.sel{background:#1d221e}
+.tablewrap{max-height:60vh;overflow:auto}
+.st{font-size:11px;padding:2px 7px;border-radius:99px;background:#222}
+.st.contacted,.st.engaged{color:var(--blue)}.st.qualified{color:var(--sun)}.st.booked{color:var(--green)}.st.disqualified,.st.opted_out{color:var(--red)}
+.bar{height:6px;background:var(--line);border-radius:3px;width:60px;display:inline-block;vertical-align:middle}
+.bar i{display:block;height:100%;background:var(--sun);border-radius:3px}
+.chat{display:flex;flex-direction:column;gap:6px;max-height:40vh;overflow:auto;margin:10px 0;padding:4px}
+.msg{max-width:85%;padding:7px 10px;border-radius:10px;white-space:pre-wrap}
+.msg.out{align-self:flex-end;background:#3a2b0c}.msg.in{align-self:flex-start;background:#1f2a22}
+.msg small{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+.qual{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px}
+.qual dt{color:var(--muted)}
+.muted{color:var(--muted);font-size:12px}
+.err{color:var(--red);font-size:12px;min-height:16px}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;width:min(420px,92vw)}
+dialog form{display:grid;gap:8px}
+dialog::backdrop{background:#0009}
+label.chk{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>☀ Solar AI Agent</h1>
+  <div class="pills" id="pills"></div>
+</header>
+<main>
+  <section class="card">
+    <div class="stats" id="stats"></div>
+    <div class="row">
+      <select id="cChannel"><option value="sms">SMS</option><option value="email">Email</option></select>
+      <input id="cLimit" type="number" min="1" max="100" value="10" style="width:70px" aria-label="How many leads">
+      <button class="primary" id="btnCampaign">Run campaign</button>
+      <button id="btnAdd">+ Lead</button>
+      <select id="filter"><option value="">All statuses</option><option>new</option><option>contacted</option><option>engaged</option><option>qualified</option><option>booked</option><option>disqualified</option><option>opted_out</option></select>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="tablewrap"><table><thead><tr><th>Lead</th><th>City</th><th>Status</th><th>Score</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <p class="muted" style="margin-top:8px">Demo leads (D###) are fictional and are never actually texted or emailed.</p>
+  </section>
+
+  <section class="card" id="detail"><p class="muted">Select a lead to see the conversation.</p></section>
+</main>
+
+<dialog id="dlgAdd">
+  <form method="dialog" id="formAdd">
+    <b>Add lead</b>
+    <input name="firstName" placeholder="First name" required>
+    <input name="lastName" placeholder="Last name">
+    <input name="phone" placeholder="Mobile phone">
+    <input name="email" type="email" placeholder="Email">
+    <input name="city" placeholder="City">
+    <label class="chk"><input type="checkbox" name="consent"> This person gave prior express written consent to be contacted by text/email about solar.</label>
+    <div class="row" style="justify-content:flex-end;margin:0"><button value="cancel" formnovalidate>Cancel</button><button class="primary" id="btnSave" value="default">Save</button></div>
+  </form>
+</dialog>
+
+<script>
+const $=id=>document.getElementById(id);
+let leads=[],sel=null;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(p,o={}){const r=await fetch(p,{method:o.method||'GET',headers:{'content-type':'application/json'},body:o.body?JSON.stringify(o.body):undefined});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||r.statusText);return d}
+async function busy(btn,fn){$('err').textContent='';if(btn)btn.disabled=true;try{await fn()}catch(e){$('err').textContent=e.message}finally{if(btn)btn.disabled=false;refresh()}}
+
+async function refresh(){
+  const [s,l]=await Promise.all([api('/api/status'),api('/api/leads')]);leads=l;
+  $('pills').innerHTML=Object.entries(s.integrations).map(([k,v])=>`<span class="pill ${v?'on':''}">${k} ${v?'live':'dry-run'}</span>`).join('')+(s.quietHours?'<span class="pill">quiet hours</span>':'');
+  const c=st=>l.filter(x=>st.includes(x.status)).length;
+  $('stats').innerHTML=[['Leads',l.length],['Contacted',c(['contacted','engaged'])],['Qualified',c(['qualified'])],['Booked',c(['booked'])]].map(([a,b])=>`<div class="stat"><b>${b}</b><span>${a}</span></div>`).join('');
+  const f=$('filter').value;
+  $('rows').innerHTML=l.filter(x=>!f||x.status===f).map(x=>`<tr class="lead ${x.id===sel?'sel':''}" data-id="${x.id}"><td>${esc(x.firstName)} ${esc(x.lastName)}<div class="muted">${x.id}</div></td><td>${esc(x.city)}</td><td><span class="st ${x.status}">${x.status}</span></td><td><span class="bar"><i style="width:${x.score}%"></i></span> ${x.score}</td></tr>`).join('');
+  if(sel)showDetail(sel,true);
+}
+
+async function showDetail(id,quiet){
+  sel=id;const l=await api('/api/leads/'+id);
+  const typing=document.activeElement?.id==='reply'?$('reply').value:'';
+  $('detail').innerHTML=`
+    <div class="row" style="justify-content:space-between"><b>${esc(l.firstName)} ${esc(l.lastName)}</b><span class="st ${l.status}">${l.status} · ${l.score}/100</span></div>
+    <div class="muted">${esc(l.phone)} · ${esc(l.email)} · ${esc(l.city)}${l.demo?' · demo':''}${l.consent?'':' · no consent'}${l.hubspotId?' · HubSpot #'+l.hubspotId:''}</div>
+    <div class="row" style="margin-top:10px"><button class="primary" id="bSms">Start SMS</button><button id="bEmail">Start email</button><button id="bSync">Sync HubSpot</button></div>
+    <div class="chat" id="chat">${l.messages.map(m=>`<div class="msg ${m.dir}">${esc(m.body)}<small>${m.channel} · ${new Date(m.at).toLocaleString()}</small></div>`).join('')||'<p class="muted">No messages yet.</p>'}</div>
+    <div class="row"><input id="reply" placeholder="Simulate a reply from the lead…" style="flex:1" value="${esc(typing)}"><button id="bSim">Send</button></div>
+    <dl class="qual">${Object.entries(l.qual).filter(([,v])=>v).map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')||'<dt>No qualification data yet</dt><dd></dd>'}</dl>`;
+  const chat=$('chat');chat.scrollTop=chat.scrollHeight;
+  $('bSms').onclick=e=>busy(e.target,()=>api(`/api/leads/${id}/start`,{method:'POST',body:{channel:'sms'}}));
+  $('bEmail').onclick=e=>busy(e.target,()=>api(`/api/leads/${id}/start`,{method:'POST',body:{channel:'email'}}));
+  $('bSync').onclick=e=>busy(e.target,()=>api(`/api/leads/${id}/sync`,{method:'POST'}));
+  const sim=e=>{const v=$('reply').value.trim();if(!v)return;$('reply').value='';busy($('bSim'),()=>api(`/api/leads/${id}/simulate`,{method:'POST',body:{body:v}}))};
+  $('bSim').onclick=sim;$('reply').onkeydown=e=>{if(e.key==='Enter')sim()};
+  if(typing)$('reply').focus();
+  if(!quiet)document.querySelectorAll('tr.lead').forEach(r=>r.classList.toggle('sel',r.dataset.id===id));
+}
+
+$('rows').onclick=e=>{const tr=e.target.closest('tr.lead');if(tr)showDetail(tr.dataset.id)};
+$('filter').onchange=refresh;
+$('btnCampaign').onclick=e=>busy(e.target,async()=>{const r=await api('/api/campaign',{method:'POST',body:{channel:$('cChannel').value,limit:+$('cLimit').value}});$('err').textContent=`Campaign: ${r.attempted} lead(s) contacted by ${r.channel}.`});
+$('btnAdd').onclick=()=>$('dlgAdd').showModal();
+$('formAdd').onsubmit=e=>{if(e.submitter?.value!=='default')return;e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.consent=!!d.consent;busy($('btnSave'),async()=>{const l=await api('/api/leads',{method:'POST',body:d});$('dlgAdd').close();e.target.reset();sel=l.id})};
+refresh();setInterval(()=>{if(!document.querySelector('dialog[open]')&&document.activeElement?.tagName!=='INPUT')refresh()},10000);
+</script>
+</body>
+</html>

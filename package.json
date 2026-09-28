@@ -1,0 +1,14 @@
+{
+  "name": "solar-ai-agent",
+  "version": "1.0.0",
+  "description": "AI lead qualification and outreach agent for residential solar (SMS, email, HubSpot)",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node lib/seed.js"
+  },
+  "engines": { "node": ">=20.12" },
+  "license": "UNLICENSED",
+  "private": true
+}
